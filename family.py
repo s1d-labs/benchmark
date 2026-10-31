@@ -8,20 +8,21 @@ from pathlib import Path
 
 FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family"]
 
+SITE = "https://janaushadhi.gov.in"
+
 PROJECTS = [
     {
-        "name": f"{FAMILY}-books",              # project names: 2-64 chars of a-z 0-9 - _, start them with the family name
-        "title": "Books to Scrape catalogue",
-        "task": "crawl",                         # a task from scrape.json
-        "target": "books.toscrape.com",
-        "env": {"SITE": "https://books.toscrape.com"},
-        "probe": f"{FAMILY}:books.toscrape.com",
-        "unit_label": "page", "record_label": "book",
-        # the queue: one item per catalogue page; `expected` (records per item) gives progress and ETAs on the dashboard
-        "items": [{"key": f"page-{n}", "payload": {"url": f"https://books.toscrape.com/catalogue/page-{n}.html", "expected": 20}}
-                  for n in range(1, 51)],
+        "name": f"{FAMILY}-janaushadhi",
+        "title": "Jan Aushadhi (PMBJP) site",
+        "task": "crawl",
+        "target": "janaushadhi.gov.in",
+        "env": {"SITE": SITE},
+        "geo": "IN",                             # the site refuses foreign IPs: only the India pool servers take this work
+        "probe": None,                           # the hub checks probes from outside India, which would hold the work
+        "unit_label": "page", "record_label": "page",
+        # discovery run: one item per start page; the raw HTML goes to the bucket so the real parser can be written from it
+        "items": [{"key": "home", "payload": {"url": SITE + "/", "expected": 1}}],
     },
 ]
 
-# health checks the hub runs every minute; work for a project holds while its probe fails
-PROBES = [{"name": f"{FAMILY}:books.toscrape.com", "url": "https://books.toscrape.com/", "expect": "All products"}]
+PROBES = []

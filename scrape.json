@@ -1,6 +1,6 @@
 {
   "family": "benchmark",
-  "about": "Example family: books.toscrape.com (a public site made for scraping practice). Copy this repo and change it.",
+  "about": "Jan Aushadhi (janaushadhi.gov.in), run on the India pool servers.",
   "setup": [
     "pip install -r requirements.txt"
   ],

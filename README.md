@@ -2,7 +2,7 @@
 
 Start a new scraping family for the s1d-labs pool. A family is one kind of site (or one platform many sites share); the pool runs
 its code on members' GitHub Actions minutes. This template is a complete, working family for
-[books.toscrape.com](https://books.toscrape.com) (a public site made for scraping practice): copy it, then change it.
+[janaushadhi.gov.in](https://janaushadhi.gov.in) (a public site made for scraping practice): copy it, then change it.
 
 ## Make your family
 

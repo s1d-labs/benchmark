@@ -2,7 +2,7 @@
 SCRAPE_POOL_PROJECT (which project), SCRAPE_JOB_INDEX / SCRAPE_TOTAL_JOBS (this worker's slice), SCRAPE_MAX_HOURS (time budget).
 
 It claims queue items from the hub, fetches each page politely (threads and delay come from the hub on every call), keeps the
-raw page in the family's bucket (the hub signs the upload; this code never holds a storage key), stores one record per book,
+raw page in the family's bucket (the hub signs the upload; this code never holds a storage key), stores one record per page,
 and reports the standard counters (n_http, t_http_s, http_error, http_<code>) the hub uses for politeness and tracking.
 """
 import gzip
@@ -16,21 +16,22 @@ import time
 import requests
 
 PROJECT = os.environ.get("SCRAPE_POOL_PROJECT", "")
-SITE = os.environ.get("SITE", "https://books.toscrape.com")
+SITE = os.environ.get("SITE", "https://janaushadhi.gov.in")
 DEADLINE = time.time() + float(os.environ.get("SCRAPE_MAX_HOURS", "1")) * 3600 - 120
 UA = "s1d-labs scraper (https://github.com/s1d-labs)"
-BOOK = re.compile(r'<article class="product_pod">.*?<a href="([^"]+)" title="([^"]+)".*?<p class="price_color">([^<]+)</p>.*?'
-                  r'<p class="instock availability">\s*(?:<i[^>]*></i>)?\s*([^<]+?)\s*</p>', re.S)
+LINK = re.compile(r'<a\b[^>]*?href=["\']([^"\'#][^"\']*)["\']', re.I)
+TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.S | re.I)
 
 
-def parse(page):
-    """[(record_id, data)] for the books on one catalogue page. Pure: test it on saved pages."""
-    out = []
-    for href, title, price, stock in BOOK.findall(page):
-        slug = href.rsplit("/", 2)[-2]
-        out.append((slug, {"title": html.unescape(title), "price": price.strip(), "availability": stock.strip(),
-                           "url": SITE + "/catalogue/" + href.lstrip("./")}))
-    return out
+def parse(page, url=""):
+    """[(record_id, data)] for one page. Discovery version: title and links, to learn the site's layout from the stored HTML."""
+    from urllib.parse import urljoin, urlparse
+    title = TITLE.search(page)
+    links = sorted({urljoin(url or SITE + "/", h.strip()) for h in LINK.findall(page)})
+    host = urlparse(SITE).netloc.removeprefix("www.")
+    links = [l for l in links if urlparse(l).netloc.removeprefix("www.") == host]
+    rid = re.sub(r"[^A-Za-z0-9._-]+", "_", urlparse(url).path.strip("/") or "home")
+    return [(rid, {"url": url, "title": html.unescape(title.group(1)).strip() if title else "", "bytes": len(page), "links": links})]
 
 
 class LocalHub:
@@ -53,7 +54,7 @@ class LocalHub:
 def local(url):
     hub = LocalHub()
     page = fetch(hub, requests.Session(), url)
-    rows = parse(page) if page else []
+    rows = parse(page, url) if page else []
     for rid, data in rows:
         print(json.dumps({"record_id": rid, "data": data}, ensure_ascii=False))
     print(f"{len(rows)} records, counters {hub.counts}", file=sys.stderr)
@@ -97,7 +98,7 @@ def main():
                 hub.complete([item["key"]], "failed", error="page did not load")
                 continue
             hub.upload_many([(f"pages/{item['key']}.html.gz", gzip.compress(page.encode()), "application/gzip")])
-            rows = parse(page)
+            rows = parse(page, item["payload"]["url"])
             for rid, data in rows:
                 hub.record(rid, {**data, "page": item["key"]})
             hub.complete([item["key"]], "done", fetched=len(rows))
@@ -110,6 +111,6 @@ def main():
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--local"]:
-        local(sys.argv[2] if len(sys.argv) > 2 else SITE + "/catalogue/page-1.html")
+        local(sys.argv[2] if len(sys.argv) > 2 else SITE + "/")
     else:
         main()
