@@ -23,6 +23,17 @@ PROJECTS = [
         # discovery run: one item per start page; the raw HTML goes to the bucket so the real parser can be written from it
         "items": [{"key": "home", "payload": {"url": SITE + "/", "expected": 1}}],
     },
+    {
+        "name": f"{FAMILY}-nppa",
+        "title": "NPPA (National Pharmaceutical Pricing Authority) site",
+        "task": "crawl",
+        "target": "nppa.gov.in",
+        "env": {"SITE": "https://nppa.gov.in"},
+        "geo": "IN",
+        "probe": None,
+        "unit_label": "page", "record_label": "page",
+        "items": [{"key": "home", "payload": {"url": "https://nppa.gov.in/", "expected": 1}}],
+    },
 ]
 
 PROBES = []
