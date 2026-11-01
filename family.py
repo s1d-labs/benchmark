@@ -10,18 +10,26 @@ FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family
 
 SITE = "https://janaushadhi.gov.in"
 
+API = "https://janaushadhi.gov.in:8443"
+PRODUCT_PAGES, PRODUCT_PAGE_SIZE = 2, 100        # first run: 2 pages + the Kendra list; raise to ~40 once it works (pages past the end answer empty)
+
 PROJECTS = [
     {
         "name": f"{FAMILY}-janaushadhi",
-        "title": "Jan Aushadhi (PMBJP) site",
+        "title": "Jan Aushadhi (PMBJP): products and Kendras",
         "task": "crawl",
         "target": "janaushadhi.gov.in",
-        "env": {"SITE": SITE},
-        "geo": "IN",                             # the site refuses foreign IPs: only the India pool servers take this work
+        "env": {"SITE": SITE, "API": API},
+        "proxy": "IN",                           # site refuses foreign IPs: GitHub workers through the team's Indian proxies
+        "threads": 1, "delay_ms": 1500,
         "probe": None,                           # the hub checks probes from outside India, which would hold the work
-        "unit_label": "page", "record_label": "page",
-        # discovery run: one item per start page; the raw HTML goes to the bucket so the real parser can be written from it
-        "items": [{"key": "home", "payload": {"url": SITE + "/", "expected": 1}}],
+        "unit_label": "page", "record_label": "record",
+        # the site's own public API (what its web pages call), one item per page of results
+        "items": [{"key": f"products-p{n}", "payload": {"kind": "product", "api": "/api/v1/website/getAllProductForWeb", "expected": PRODUCT_PAGE_SIZE,
+                                                         "body": {"pageIndex": n, "pageSize": PRODUCT_PAGE_SIZE, "searchText": "", "columnName": "drug_code", "orderBy": "asc"}}}
+                  for n in range(PRODUCT_PAGES)]
+                 + [{"key": "kendras-p0", "payload": {"kind": "kendra", "api": "/api/v1/website/getAllKendraByStateDistrict", "expected": 1000,
+                                                      "body": {"pageIndex": 0, "pageSize": 100000, "stateId": 0, "districtId": 0, "pinCode": 0}}}],
     },
     {
         "name": f"{FAMILY}-nppa",

@@ -80,10 +80,64 @@ def fetch(hub, session, url):
     return r.text
 
 
+API = os.environ.get("API", "https://janaushadhi.gov.in:8443")
+LIST_KEYS = ("id", "productId", "kendraId", "drugCode", "drug_code", "applicationId")
+
+
+def guest_token(hub, session):
+    """The site gives every visitor a guest token and sends it as a bearer token on its public API."""
+    r = session.get(API + "/auth/generateGuestToken", timeout=30, headers={"User-Agent": UA})
+    hub.metric("n_http")
+    r.raise_for_status()
+    return r.json()["responseBody"]
+
+
+def rows_of(body):
+    """The largest list inside the API's responseBody (newProductResponsesList for products), and the site's total if given."""
+    if isinstance(body, list):
+        return body, None
+    lists = [v for v in (body or {}).values() if isinstance(v, list)]
+    return (max(lists, key=len) if lists else []), (body or {}).get("totalElement")
+
+
+def parse_api(kind, body, page):
+    """[(record_id, data)] from one API answer. Pure: test it on saved answers."""
+    rows, _ = rows_of(body)
+    out = []
+    for n, row in enumerate(rows):
+        key = next((str(row[k]) for k in LIST_KEYS if isinstance(row, dict) and row.get(k) not in (None, "")), None)
+        rid = f"{kind}-{key}" if key else f"{kind}-p{page}-{n}"
+        out.append((rid, row))
+    return out
+
+
+def fetch_api(hub, session, token, path, payload):
+    t = time.time()
+    try:
+        r = session.post(API + path, json=payload, timeout=60, headers={"User-Agent": UA, "Authorization": f"Bearer {token}"})
+    except requests.RequestException:
+        hub.metric("http_error")
+        hub.error()
+        return None
+    hub.metric("n_http")
+    hub.metric("t_http_s", time.time() - t)
+    if r.status_code != 200:
+        hub.metric(f"http_{r.status_code}")
+        if r.status_code in (401, 403, 429, 503):
+            hub.block()
+        return None
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+    return data.get("responseBody") if isinstance(data, dict) and data.get("responseCode") in (200, None) else None
+
+
 def main():
     from scrape_hub_client import HubClient      # imported here so --local works without it
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
     session = requests.Session()
+    token = None
     try:
         while time.time() < DEADLINE:
             if hub.settings.get("paused"):
@@ -93,6 +147,21 @@ def main():
             if not items:
                 break                                   # nothing left for this project: exit, the worker asks the hub for more
             item = items[0]
+            if "api" in item["payload"]:
+                token = token or guest_token(hub, session)
+                body = fetch_api(hub, session, token, item["payload"]["api"], item["payload"]["body"])
+                if body is None:
+                    token = None                         # may have expired: fetch a new one next time
+                    hub.complete([item["key"]], "failed", error="api call failed")
+                    continue
+                kind, pg = item["payload"]["kind"], item["payload"]["body"].get("pageIndex", 0)
+                hub.upload_many([(f"api/{item['key']}.json.gz", gzip.compress(json.dumps(body, ensure_ascii=False).encode()), "application/gzip")])
+                rows = parse_api(kind, body, pg)
+                for rid, data in rows:
+                    hub.record(rid, {**data, "page": item["key"]}) if isinstance(data, dict) else hub.record(rid, {"value": data, "page": item["key"]})
+                hub.complete([item["key"]], "done", fetched=len(rows))
+                time.sleep(max(0.5, hub.settings.get("delay_ms", 0) / 1000))
+                continue
             page = fetch(hub, session, item["payload"]["url"])
             if page is None:
                 hub.complete([item["key"]], "failed", error="page did not load")
