@@ -163,7 +163,12 @@ def get_json(hub, session, token, key, path):
     except ValueError:
         hub.failure("api", key, "answer is not JSON", body=r.text[:200])
         return None
-    return data.get("responseBody") if isinstance(data, dict) else None
+    if isinstance(data, list):
+        return data
+    body = data.get("responseBody") if isinstance(data, dict) else None
+    if body is None:
+        hub.failure("api", key, "answer has no responseBody", body=r.text[:300])
+    return body
 
 
 def first_id(row, names=("id", "stateId", "districtId", "stateCode")):
@@ -176,8 +181,9 @@ def crawl_kendras(hub, session, token, key, deadline):
     if isinstance(states, dict):                         # the list may sit inside the body
         states = rows_of(states)[0]
     if not isinstance(states, list) or not states:
-        hub.failure("api", key, "no state list", sample=json.dumps(states, ensure_ascii=False, default=str)[:300])
-        return None
+        # the site's locator sends census state codes as stateId ("7" = Delhi): walk 1..40, a code with no Kendras answers empty
+        hub.failure("api", key, "no state list: walking census state codes 1-40")
+        states = [{"id": n} for n in range(1, 41)]
     out, seen = [], set()
     if all(first_id(st) is None for st in states):
         hub.failure("api", key, "state rows have no id", sample=json.dumps(states[0], ensure_ascii=False)[:300])
