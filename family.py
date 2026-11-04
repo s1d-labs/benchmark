@@ -28,10 +28,9 @@ PROJECTS = [
         "items": [{"key": f"products-p{n}", "payload": {"kind": "product", "api": "/api/v1/website/getAllProductForWeb", "expected": PRODUCT_PAGE_SIZE,
                                                          "body": {"pageIndex": n, "pageSize": PRODUCT_PAGE_SIZE, "searchText": "", "columnName": "drug_code", "orderBy": "asc"}}}
                   for n in range(PRODUCT_PAGES)]
-                 # "kendras-p0" (100,000 rows in one call) failed 40 times without a reason; this one asks for 100 rows, and the
-                 # crawl now records the API's answer with hub.failure, so a failure shows why
-                 + [{"key": "kendras-n0-p0", "payload": {"kind": "kendra", "api": "/api/v1/website/getAllKendraByStateDistrict", "expected": 100,
-                                                         "body": {"pageIndex": 0, "pageSize": 100, "stateId": 0, "districtId": 0, "pinCode": 0}}}],
+                 # every Kendra (store): one item, because the site's locator asks one state at a time (stateId as text, pageSize 0)
+                 # and the state list comes from the API itself. "kendras-p0" and "kendras-n0-p0" failed with "server error" (wrong request).
+                 + [{"key": "kendras-all", "payload": {"kind": "kendra-all", "expected": 17000}}],
     },
     {
         "name": f"{FAMILY}-nppa",

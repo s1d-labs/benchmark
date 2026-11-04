@@ -81,7 +81,7 @@ def fetch(hub, session, url):
 
 
 API = os.environ.get("API", "https://janaushadhi.gov.in:8443")
-LIST_KEYS = ("id", "productId", "kendraId", "drugCode", "drug_code", "applicationId")
+LIST_KEYS = ("productId", "kendraId", "id", "storeCode", "kendraCode", "applicationId", "drugCode")
 
 
 def guest_token(hub, session):
@@ -142,6 +142,60 @@ def fetch_api(hub, session, token, key, path, payload):
     return data.get("responseBody")
 
 
+def get_json(hub, session, token, key, path):
+    """GET a list the site's own pages load (states, districts): the answer's responseBody, or None after hub.failure()."""
+    t = time.time()
+    try:
+        r = session.get(API + path, timeout=60, headers={"User-Agent": UA, "Authorization": f"Bearer {token}"})
+    except requests.RequestException as e:
+        hub.metric("http_error")
+        hub.error()
+        hub.failure("api", key, f"request failed: {type(e).__name__}")
+        return None
+    hub.metric("n_http")
+    hub.metric("t_http_s", time.time() - t)
+    if r.status_code != 200:
+        hub.metric(f"http_{r.status_code}")
+        hub.failure("api", key, f"HTTP {r.status_code}", body=r.text[:200])
+        return None
+    try:
+        data = r.json()
+    except ValueError:
+        hub.failure("api", key, "answer is not JSON", body=r.text[:200])
+        return None
+    return data.get("responseBody") if isinstance(data, dict) else None
+
+
+def first_id(row, names=("id", "stateId", "districtId", "stateCode")):
+    return next((row[k] for k in names if isinstance(row, dict) and row.get(k) not in (None, "")), None)
+
+
+def crawl_kendras(hub, session, token, key, deadline):
+    """Every Kendra (store), state by state as the site's own locator asks: [(record id, data)], or None when a state fails."""
+    states = get_json(hub, session, token, key, "/api/kendra/getAllStateOfIndia")
+    if not isinstance(states, list) or not states:
+        return None
+    out, seen = [], set()
+    for st in states:
+        sid = first_id(st)
+        if sid is None or time.time() > deadline:
+            continue
+        sid = str(sid)
+        body = fetch_api(hub, session, token, f"{key}/{sid}", "/api/v1/website/getAllKendraByStateDistrict",
+                         {"pageIndex": 0, "pageSize": 0, "stateId": sid, "pinCode": 0, "storeCode": ""})
+        if body is None:
+            continue
+        rows, total = rows_of(body)
+        hub.upload_many([(f"api/kendras-state-{re.sub(r'[^A-Za-z0-9._-]', '_', sid)}.json.gz",
+                          gzip.compress(json.dumps(body, ensure_ascii=False).encode()), "application/gzip")])
+        for rid, data in parse_api("kendra", body, int(sid) if sid.isdigit() else 0):
+            if rid not in seen:
+                seen.add(rid)
+                out.append((rid, {**data, "state_id": sid, "state": st if not isinstance(st, dict) else {k: v for k, v in st.items() if not isinstance(v, (list, dict))}}))
+        time.sleep(max(0.5, hub.settings.get("delay_ms", 0) / 1000))
+    return out
+
+
 def main():
     from scrape_hub_client import HubClient      # imported here so --local works without it
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
@@ -156,6 +210,17 @@ def main():
             if not items:
                 break                                   # nothing left for this project: exit, the worker asks the hub for more
             item = items[0]
+            if item["payload"].get("kind") == "kendra-all":
+                token = token or guest_token(hub, session)
+                rows = crawl_kendras(hub, session, token, item["key"], DEADLINE)
+                if not rows:
+                    token = None
+                    hub.complete([item["key"]], "failed", error="no Kendras fetched (see the failures list)")
+                    continue
+                for rid, data in rows:
+                    hub.record(rid, data)
+                hub.complete([item["key"]], "done", fetched=len(rows))
+                continue
             if "api" in item["payload"]:
                 token = token or guest_token(hub, session)
                 body = fetch_api(hub, session, token, item["key"], item["payload"]["api"], item["payload"]["body"])
