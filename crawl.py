@@ -173,7 +173,10 @@ def first_id(row, names=("id", "stateId", "districtId", "stateCode")):
 def crawl_kendras(hub, session, token, key, deadline):
     """Every Kendra (store), state by state as the site's own locator asks: [(record id, data)], or None when a state fails."""
     states = get_json(hub, session, token, key, "/api/kendra/getAllStateOfIndia")
+    if isinstance(states, dict):                         # the list may sit inside the body
+        states = rows_of(states)[0]
     if not isinstance(states, list) or not states:
+        hub.failure("api", key, "no state list", sample=json.dumps(states, ensure_ascii=False, default=str)[:300])
         return None
     out, seen = [], set()
     if all(first_id(st) is None for st in states):
