@@ -176,16 +176,24 @@ def crawl_kendras(hub, session, token, key, deadline):
     if not isinstance(states, list) or not states:
         return None
     out, seen = [], set()
+    if all(first_id(st) is None for st in states):
+        hub.failure("api", key, "state rows have no id", sample=json.dumps(states[0], ensure_ascii=False)[:300])
+        return None
     for st in states:
         sid = first_id(st)
         if sid is None or time.time() > deadline:
             continue
         sid = str(sid)
-        body = fetch_api(hub, session, token, f"{key}/{sid}", "/api/v1/website/getAllKendraByStateDistrict",
-                         {"pageIndex": 0, "pageSize": 0, "stateId": sid, "pinCode": 0, "storeCode": ""})
-        if body is None:
+        for size in (0, 1000):                          # the site's locator sends 0 (all); some servers want a number
+            body = fetch_api(hub, session, token, f"{key}/{sid}", "/api/v1/website/getAllKendraByStateDistrict",
+                             {"pageIndex": 0, "pageSize": size, "stateId": sid, "pinCode": 0, "storeCode": ""})
+            rows, total = rows_of(body) if body is not None else ([], None)
+            if rows:
+                break
+        if not rows:
+            if body is not None:
+                hub.failure("api", f"{key}/{sid}", "no rows", total=total, keys=",".join(map(str, list(body)[:8])) if isinstance(body, dict) else type(body).__name__)
             continue
-        rows, total = rows_of(body)
         hub.upload_many([(f"api/kendras-state-{re.sub(r'[^A-Za-z0-9._-]', '_', sid)}.json.gz",
                           gzip.compress(json.dumps(body, ensure_ascii=False).encode()), "application/gzip")])
         for rid, data in parse_api("kendra", body, int(sid) if sid.isdigit() else 0):
