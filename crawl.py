@@ -111,13 +111,15 @@ def parse_api(kind, body, page):
     return out
 
 
-def fetch_api(hub, session, token, path, payload):
+def fetch_api(hub, session, token, key, path, payload):
+    """The answer's responseBody, or None after hub.failure() recorded why (status, responseCode, message)."""
     t = time.time()
     try:
         r = session.post(API + path, json=payload, timeout=60, headers={"User-Agent": UA, "Authorization": f"Bearer {token}"})
-    except requests.RequestException:
+    except requests.RequestException as e:
         hub.metric("http_error")
         hub.error()
+        hub.failure("api", key, f"request failed: {type(e).__name__}")
         return None
     hub.metric("n_http")
     hub.metric("t_http_s", time.time() - t)
@@ -125,12 +127,19 @@ def fetch_api(hub, session, token, path, payload):
         hub.metric(f"http_{r.status_code}")
         if r.status_code in (401, 403, 429, 503):
             hub.block()
+        hub.failure("api", key, f"HTTP {r.status_code}", body=r.text[:200])
         return None
     try:
         data = r.json()
     except ValueError:
+        hub.failure("api", key, "answer is not JSON", body=r.text[:200])
         return None
-    return data.get("responseBody") if isinstance(data, dict) and data.get("responseCode") in (200, None) else None
+    if not isinstance(data, dict) or data.get("responseCode") not in (200, None):
+        hub.failure("api", key, f"responseCode {data.get('responseCode') if isinstance(data, dict) else '?'}",
+                    message=str(data.get("message") or data.get("responseMessage") or "")[:200] if isinstance(data, dict) else "")
+        return None
+    hub.clear_failure("api", key)
+    return data.get("responseBody")
 
 
 def main():
@@ -149,7 +158,7 @@ def main():
             item = items[0]
             if "api" in item["payload"]:
                 token = token or guest_token(hub, session)
-                body = fetch_api(hub, session, token, item["payload"]["api"], item["payload"]["body"])
+                body = fetch_api(hub, session, token, item["key"], item["payload"]["api"], item["payload"]["body"])
                 if body is None:
                     token = None                         # may have expired: fetch a new one next time
                     hub.complete([item["key"]], "failed", error="api call failed")

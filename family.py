@@ -11,7 +11,7 @@ FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family
 SITE = "https://janaushadhi.gov.in"
 
 API = "https://janaushadhi.gov.in:8443"
-PRODUCT_PAGES, PRODUCT_PAGE_SIZE = 2, 100        # first run: 2 pages + the Kendra list; raise to ~40 once it works (pages past the end answer empty)
+PRODUCT_PAGES, PRODUCT_PAGE_SIZE = 25, 100       # the site lists 2,445 products (totalPages 25 at 100 per page)
 
 PROJECTS = [
     {
@@ -28,8 +28,10 @@ PROJECTS = [
         "items": [{"key": f"products-p{n}", "payload": {"kind": "product", "api": "/api/v1/website/getAllProductForWeb", "expected": PRODUCT_PAGE_SIZE,
                                                          "body": {"pageIndex": n, "pageSize": PRODUCT_PAGE_SIZE, "searchText": "", "columnName": "drug_code", "orderBy": "asc"}}}
                   for n in range(PRODUCT_PAGES)]
-                 + [{"key": "kendras-p0", "payload": {"kind": "kendra", "api": "/api/v1/website/getAllKendraByStateDistrict", "expected": 1000,
-                                                      "body": {"pageIndex": 0, "pageSize": 100000, "stateId": 0, "districtId": 0, "pinCode": 0}}}],
+                 # "kendras-p0" (100,000 rows in one call) failed 40 times without a reason; this one asks for 100 rows, and the
+                 # crawl now records the API's answer with hub.failure, so a failure shows why
+                 + [{"key": "kendras-n0-p0", "payload": {"kind": "kendra", "api": "/api/v1/website/getAllKendraByStateDistrict", "expected": 100,
+                                                         "body": {"pageIndex": 0, "pageSize": 100, "stateId": 0, "districtId": 0, "pinCode": 0}}}],
     },
     {
         "name": f"{FAMILY}-nppa",
