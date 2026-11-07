@@ -10,5 +10,5 @@ for p in PROJECTS:
                      expected_units=len(p["items"]), expected_records=sum(i["payload"].get("expected", 0) for i in p["items"]))
     set_pool(p["name"], FAMILY, p["task"], target=p["target"], env=p["env"], **({"probe": p["probe"]} if p["probe"] else {}),
              geo=p.get("geo", ""), proxy=p.get("proxy", ""),
-             **{k: p[k] for k in ("threads", "delay_ms") if k in p})
+             **{k: p[k] for k in ("threads", "delay_ms", "proxy_only") if k in p})
     print(p["name"], "queue:", seed_queue(p["name"], p["items"]))

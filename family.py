@@ -51,6 +51,7 @@ PROJECTS = [
         "env": {"SITE": "https://cpwd.gov.in"},
         "geo": "IN",                             # the site's HTTPS answers with a reset from the box and from 3 proxy IPs of 2 ranges:
         "proxy": "IN",                           # try both India routes (servers and proxies) and read the run's egress IP
+        "proxy_only": ["91.124.42."],            # proxy ranges 191.219.x and 95.134.119.x got a reset on port 443; try the third range
         "threads": 1, "delay_ms": 1500,
         "probe": None,
         "unit_label": "page", "record_label": "page",
