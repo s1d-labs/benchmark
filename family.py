@@ -43,6 +43,20 @@ PROJECTS = [
         "unit_label": "page", "record_label": "page",
         "items": [{"key": "home", "payload": {"url": "https://nppa.gov.in/", "expected": 1}}],
     },
+    {
+        "name": f"{FAMILY}-cpwd",
+        "title": "CPWD (Central Public Works Department) site",
+        "task": "crawl",
+        "target": "cpwd.gov.in",
+        "env": {"SITE": "https://cpwd.gov.in"},
+        "geo": "IN",                             # the site's HTTPS answers with a reset from the box and from 3 proxy IPs of 2 ranges:
+        "proxy": "IN",                           # try both India routes (servers and proxies) and read the run's egress IP
+        "threads": 1, "delay_ms": 1500,
+        "probe": None,
+        "unit_label": "page", "record_label": "page",
+        # discovery run: the raw homepage HTML goes to the bucket so the real parser can be written from it
+        "items": [{"key": "home", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}}],
+    },
 ]
 
 PROBES = []
