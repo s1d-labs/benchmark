@@ -56,7 +56,10 @@ PROJECTS = [
         "probe": None,
         "unit_label": "page", "record_label": "page",
         # discovery run: the raw homepage HTML goes to the bucket so the real parser can be written from it
-        "items": [{"key": "home", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}}],
+        "items": [
+            {"key": "home", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}},
+            {"key": "home-2", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}},
+        ],
     },
 ]
 
