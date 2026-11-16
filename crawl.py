@@ -53,11 +53,21 @@ class LocalHub:
 
 def local(url):
     hub = LocalHub()
-    page = fetch(hub, requests.Session(), url)
+    page = fetch(hub, new_session(), url)
     rows = parse(page, url) if page else []
     for rid, data in rows:
         print(json.dumps({"record_id": rid, "data": data}, ensure_ascii=False))
     print(f"{len(rows)} records, counters {hub.counts}", file=sys.stderr)
+
+
+def new_session():
+    s = requests.Session()
+    try:
+        from scrape_hub_client import ca_bundle     # certifi + public intermediates that some government servers do not send
+        s.verify = ca_bundle()                      # (nppa.gov.in sends no intermediate: plain certifi fails, 40 tries)
+    except ImportError:                             # --local without the SDK
+        pass
+    return s
 
 
 def fetch(hub, session, url):
@@ -216,7 +226,7 @@ def crawl_kendras(hub, session, token, key, deadline):
 def main():
     from scrape_hub_client import HubClient      # imported here so --local works without it
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
-    session = requests.Session()
+    session = new_session()
     token = None
     try:
         while time.time() < DEADLINE:
