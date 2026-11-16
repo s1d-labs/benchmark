@@ -1,6 +1,6 @@
 {
   "family": "benchmark",
-  "about": "Jan Aushadhi (janaushadhi.gov.in), run on the India pool servers.",
+  "about": "Jan Aushadhi (janaushadhi.gov.in), run on the India pool servers. MoSPI (mospi.gov.in) on GitHub runners.",
   "setup": [
     "pip install -r requirements.txt"
   ],
@@ -8,6 +8,10 @@
     "crawl": [
       "python",
       "crawl.py"
+    ],
+    "mospi": [
+      "python",
+      "mospi.py"
     ]
   }
 }

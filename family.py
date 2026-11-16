@@ -13,6 +13,10 @@ SITE = "https://janaushadhi.gov.in"
 API = "https://janaushadhi.gov.in:8443"
 PRODUCT_PAGES, PRODUCT_PAGE_SIZE = 25, 100       # the site lists 2,445 products (totalPages 25 at 100 per page)
 
+# list name -> (pages, records the site lists); 100 rows per page, except "achievement" (the site gives 10 per page)
+MOSPI_LISTS = {"release": (2, 114), "publication": (3, 255), "announcement": (1, 48), "publicdoc": (1, 99), "ddp": (1, 1), "dg": (1, 11),
+               "diid": (1, 60), "administration": (1, 80), "sdmx": (1, 34), "sdg": (1, 23), "achievement": (6, 58)}
+
 PROJECTS = [
     {
         "name": f"{FAMILY}-janaushadhi",
@@ -60,6 +64,19 @@ PROJECTS = [
             {"key": "home", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}},
             {"key": "home-2", "payload": {"url": "https://cpwd.gov.in/", "expected": 1}},
         ],
+    },
+    {
+        "name": f"{FAMILY}-mospi",
+        "title": "MoSPI (Ministry of Statistics and Programme Implementation): releases, reports, documents",
+        "task": "mospi",
+        "target": "mospi.gov.in",
+        "env": {"SITE": "https://www.mospi.gov.in"},
+        "threads": 1, "delay_ms": 1500,             # the site answers from outside India: plain GitHub runners, no proxy
+        "probe": None,
+        "unit_label": "page", "record_label": "record",
+        # the site's own public JSON API (what its web pages call): one item per page of one list; the task also keeps the attached files
+        "items": [{"key": f"{name}-p{n}", "payload": {"list": name, "page": n, "expected": min(100 if name != "achievement" else 10, total - (n - 1) * (100 if name != "achievement" else 10))}}
+                  for name, (pages, total) in MOSPI_LISTS.items() for n in range(1, pages + 1)],
     },
 ]
 
