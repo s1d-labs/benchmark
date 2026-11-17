@@ -4,6 +4,7 @@ FAMILY must equal the repo name (s1d-labs/<FAMILY>) and the family the hub owner
 Each project is one queue of work on one site; `target` is the host it hits (the hub caps workers per target).
 """
 import json
+import re
 from pathlib import Path
 
 FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family"]
@@ -16,6 +17,61 @@ PRODUCT_PAGES, PRODUCT_PAGE_SIZE = 25, 100       # the site lists 2,445 products
 # list name -> (pages, records the site lists); 100 rows per page, except "achievement" (the site gives 10 per page)
 MOSPI_LISTS = {"release": (2, 113), "publication": (3, 255), "announcement": (1, 48), "publicdoc": (1, 99), "ddp": (1, 1), "dg": (1, 11),
                "diid": (1, 60), "administration": (1, 80), "sdmx": (1, 34), "sdg": (1, 23), "achievement": (6, 58)}
+
+# public pages of eaindustry.nic.in found by a small crawl on 2026-11-17 (login pages of the data-submission portals left out)
+EA_PAGES = ["/",
+    "/about_us.asp",
+    "/archive.asp",
+    "/contactus.asp",
+    "/district_development_plan.asp",
+    "/download_data_0405.asp",
+    "/download_data_1112.asp",
+    "/download_data_2223.asp",
+    "/download_data_8182.asp",
+    "/download_data_9394.asp",
+    "/grievances.asp",
+    "/hindi/about_us.asp",
+    "/hindi/archive.asp",
+    "/hindi/contactus.asp",
+    "/hindi/download_data_0405.asp",
+    "/hindi/download_data_1112.asp",
+    "/hindi/download_data_8182.asp",
+    "/hindi/download_data_9394.asp",
+    "/hindi/experimental_sp_index.asp",
+    "/hindi/ici_press_release_archive.asp",
+    "/hindi/linking_factor0405.asp",
+    "/hindi/linking_factor1112.asp",
+    "/hindi/linking_factor9394.asp",
+    "/hindi/price_data_links.asp",
+    "/hindi/recruitment.asp",
+    "/hindi/rti.asp",
+    "/hindi/screen_reader.asp",
+    "/hindi/six_infra.asp",
+    "/hindi/tenders.asp",
+    "/hindi/trade_and_fiscal_policy.asp",
+    "/hindi/who_is_who.asp",
+    "/hindi/work_allocation.asp",
+    "/hindi/wpi_linking_factor.asp",
+    "/hindi/wpi_press_release_archive.asp",
+    "/hindi/wpi_revision_0405.asp",
+    "/ici_download_data.asp",
+    "/ici_press_release_archive.asp",
+    "/linking_factor0405.asp",
+    "/linking_factor1112.asp",
+    "/linking_factor2223.asp",
+    "/linking_factor9394.asp",
+    "/photo_gallery.asp",
+    "/photo_gallery1.asp",
+    "/photo_gallery2.asp",
+    "/price_data_links.asp",
+    "/recruitment.asp",
+    "/rti.asp",
+    "/six_infra.asp",
+    "/trade_and_fiscal_policy.asp",
+    "/who_is_who.asp",
+    "/wpi_linking_factor.asp",
+    "/wpi_press_release_archive.asp",
+    "/wpi_revision_0405.asp"]
 
 PROJECTS = [
     {
@@ -78,6 +134,20 @@ PROJECTS = [
         "items": [{"key": f"{name}-p{n}" if n == 1 and name != "achievement" else f"{name}-p{n}-r{3 if name == 'achievement' else 2}",   # "-r2": pages 2+ first ran with the wrong paging field (page 1 again), so they got new keys (achievement: wrong again, "-r3")
                    "payload": {"list": name, "page": n, "expected": min(100 if name != "achievement" else 10, total - (n - 1) * (100 if name != "achievement" else 10))}}
                   for name, (pages, total) in MOSPI_LISTS.items() for n in range(1, pages + 1)],
+    },
+    {
+        "name": f"{FAMILY}-eaindustry",
+        "title": "Office of Economic Adviser (DPIIT): WPI, PPI, core industries data and press releases",
+        "task": "eaindustry",
+        "target": "eaindustry.nic.in",
+        "env": {"SITE": "https://eaindustry.nic.in"},
+        "proxy": "IN",                          # the site answers only from India: GitHub workers through the team's Indian proxies
+        "threads": 1, "delay_ms": 1500,
+        "probe": None,
+        "unit_label": "page", "record_label": "page",
+        # one item per public page; the task keeps the raw HTML and downloads the files the page links to (PDF, DOC, XLS)
+        "items": [{"key": re.sub(r"[^a-z0-9]+", "-", p.strip("/").lower()).strip("-") or "home",
+                   "payload": {"url": "https://eaindustry.nic.in" + p, "expected": 1}} for p in EA_PAGES],
     },
 ]
 

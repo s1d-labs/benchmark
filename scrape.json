@@ -1,6 +1,6 @@
 {
   "family": "benchmark",
-  "about": "Jan Aushadhi (janaushadhi.gov.in), run on the India pool servers. MoSPI (mospi.gov.in) on GitHub runners.",
+  "about": "Jan Aushadhi (janaushadhi.gov.in), run on the India pool servers. MoSPI (mospi.gov.in) on GitHub runners. eaindustry.nic.in through Indian proxies.",
   "setup": [
     "pip install -r requirements.txt"
   ],
@@ -12,6 +12,10 @@
     "mospi": [
       "python",
       "mospi.py"
+    ],
+    "eaindustry": [
+      "python",
+      "eaindustry.py"
     ]
   }
 }
