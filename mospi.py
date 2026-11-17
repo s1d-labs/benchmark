@@ -35,13 +35,13 @@ LISTS = {
     "administration": ("administration/get-web-administration-list", {}),
     "sdmx": ("sdmx-doc/get-web-sdmx-doc-list", {}),
     "sdg": ("sdg-documents/get-sdg-web-data", {}),
-    "achievement": ("about-us/get-achievements-web", {"sort_field": "id"}),
+    "achievement": ("about-us/get-achievements-web", {"sort_field": "published_date", "sort_order": "desc", "limit": 10}),   # this page takes page/limit and a lowercase sort_order
 }
 
 
 def request_body(extra=None, page=1):
     """What the site's own list component sends (page_no is in the body, not in the URL)."""
-    body = {"page_no": page, "page_size": PAGE_SIZE, "search_term": "", "sort_field": "published_year", "sort_order": "DESC",
+    body = {"page_no": page, "page": page, "page_size": PAGE_SIZE, "search_term": "", "sort_field": "published_year", "sort_order": "DESC",
             "from_date": "", "to_date": "", "lang": "en", "data_source": "web"}
     body.update(extra or {})
     return body

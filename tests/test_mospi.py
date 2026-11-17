@@ -30,3 +30,9 @@ def test_bucket_path_uses_only_allowed_characters():
 def test_request_body_default_and_extra():
     b = mospi.request_body({"sort_field": "id"}, 3)
     assert b["sort_field"] == "id" and b["page_no"] == 3 and b["page_size"] == 100
+
+
+def test_achievement_body_pages_by_page_and_limit():
+    endpoint, extra = mospi.LISTS["achievement"]
+    b = mospi.request_body(extra, 4)
+    assert b["page"] == 4 and b["limit"] == 10 and b["sort_order"] == "desc" and b["sort_field"] == "published_date"
