@@ -28,4 +28,5 @@ def test_bucket_path_uses_only_allowed_characters():
 
 
 def test_request_body_default_and_extra():
-    assert mospi.request_body({"sort_field": "id"})["sort_field"] == "id" and mospi.request_body()["page_size"] == 100
+    b = mospi.request_body({"sort_field": "id"}, 3)
+    assert b["sort_field"] == "id" and b["page_no"] == 3 and b["page_size"] == 100

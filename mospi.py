@@ -39,9 +39,10 @@ LISTS = {
 }
 
 
-def request_body(extra=None):
-    body = {"page_size": PAGE_SIZE, "search_term": "", "sort_field": "published_year", "sort_order": "DESC",
-            "start_date": "", "end_date": "", "data_source": "web"}
+def request_body(extra=None, page=1):
+    """What the site's own list component sends (page_no is in the body, not in the URL)."""
+    body = {"page_no": page, "page_size": PAGE_SIZE, "search_term": "", "sort_field": "published_year", "sort_order": "DESC",
+            "from_date": "", "to_date": "", "lang": "en", "data_source": "web"}
     body.update(extra or {})
     return body
 
@@ -130,7 +131,7 @@ def api_list(hub, session, key, endpoint, extra, page):
     """The answer (dict) or None after hub.failure() recorded why."""
     t = time.time()
     try:
-        r = session.post(f"{SITE}/api/{endpoint}", params={"page": page}, json=request_body(extra), timeout=60,
+        r = session.post(f"{SITE}/api/{endpoint}", json=request_body(extra, page), timeout=60,
                          headers={"User-Agent": UA, "Content-Type": "application/json"})
     except requests.RequestException as e:
         hub.metric("http_error")
