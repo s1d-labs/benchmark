@@ -75,7 +75,7 @@ PROJECTS = [
         "probe": None,
         "unit_label": "page", "record_label": "record",
         # the site's own public JSON API (what its web pages call): one item per page of one list; the task also keeps the attached files
-        "items": [{"key": f"{name}-p{n}" if n == 1 else f"{name}-p{n}-r{3 if name == 'achievement' else 2}",   # "-r2": pages 2+ first ran with the wrong paging field (page 1 again), so they got new keys (achievement: wrong again, "-r3")
+        "items": [{"key": f"{name}-p{n}" if n == 1 and name != "achievement" else f"{name}-p{n}-r{3 if name == 'achievement' else 2}",   # "-r2": pages 2+ first ran with the wrong paging field (page 1 again), so they got new keys (achievement: wrong again, "-r3")
                    "payload": {"list": name, "page": n, "expected": min(100 if name != "achievement" else 10, total - (n - 1) * (100 if name != "achievement" else 10))}}
                   for name, (pages, total) in MOSPI_LISTS.items() for n in range(1, pages + 1)],
     },
